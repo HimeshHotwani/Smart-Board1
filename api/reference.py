@@ -1,28 +1,6 @@
-from flask import Flask, jsonify, Response, request
-import enum
-import logging
-import cv2
-import numpy as np
-import mediapipe as mp
-from collections import deque
+# (Aditya): This is the reference file for you guys, as this is the original code you hade :)
 
-app = Flask(__name__)
-
-class VideoCamera(object):
-    def __init__(self):
-      self.video = cv2.VideoCapture(0)
-    def __del__(self):
-      self.video.release()
-
-    def GetVideoCapture(self):
-        return self.video
-
-class DisplayType(enum.Enum):
-    CameraOverlapDisplay = 0
-    BlankCanvasDisplay = 1
-
-
-def GenerateFrames(camera: VideoCamera, displayType: DisplayType):
+def RunInSeparateWindow():
     # Giving different arrays to handle colour points of different colour
     bpoints = [deque(maxlen=1024)]
     gpoints = [deque(maxlen=1024)]
@@ -41,29 +19,41 @@ def GenerateFrames(camera: VideoCamera, displayType: DisplayType):
     colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (0, 255, 255)]
     colorIndex = 0
 
+    # Here is code for Canvas setup
+    paintWindow = np.zeros((471,636,3)) + 255
+    paintWindow = cv2.rectangle(paintWindow, (40,1), (140,65), (0,0,0), 2)
+    paintWindow = cv2.rectangle(paintWindow, (160,1), (255,65), (255,0,0), 2)
+    paintWindow = cv2.rectangle(paintWindow, (275,1), (370,65), (0,255,0), 2)
+    paintWindow = cv2.rectangle(paintWindow, (390,1), (485,65), (0,0,255), 2)
+    paintWindow = cv2.rectangle(paintWindow, (505,1), (600,65), (0,255,255), 2)
+
+    cv2.putText(paintWindow, "CLEAR", (49, 33), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv2.LINE_AA)
+    cv2.putText(paintWindow, "BLUE", (185, 33), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv2.LINE_AA)
+    cv2.putText(paintWindow, "GREEN", (298, 33), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv2.LINE_AA)
+    cv2.putText(paintWindow, "RED", (420, 33), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv2.LINE_AA)
+    cv2.putText(paintWindow, "YELLOW", (520, 33), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv2.LINE_AA)
+    cv2.namedWindow('Paint', cv2.WINDOW_AUTOSIZE)
+
+
     # initialize mediapipe
     mpHands = mp.solutions.hands
     hands = mpHands.Hands(max_num_hands=1, min_detection_confidence=0.7)
     mpDraw = mp.solutions.drawing_utils
 
-    while True:
-        success, frame = camera.GetVideoCapture().read()
-        if not success:
-            break
 
-        # Process frame using OpenCV for air canvas effect
+    # Initialize the webcam
+    cap = cv2.VideoCapture(0)
+    ret = True
+    while ret:
+        # Read each frame from the webcam
+        ret, frame = cap.read()
+
         x, y, c = frame.shape
 
         # Flip the frame vertically
         frame = cv2.flip(frame, 1)
         #hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         framergb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        # This is where the decision happens
-        if displayType == DisplayType.CameraOverlapDisplay:
-            frame = frame
-        elif displayType == DisplayType.BlankCanvasDisplay:
-            frame = np.zeros((471,636,3)) + 255
 
         frame = cv2.rectangle(frame, (40,1), (140,65), (0,0,0), 2)
         frame = cv2.rectangle(frame, (160,1), (255,65), (255,0,0), 2)
@@ -93,9 +83,9 @@ def GenerateFrames(camera: VideoCamera, displayType: DisplayType):
 
                     landmarks.append([lmx, lmy])
 
+
                 # Drawing landmarks on frames
                 mpDraw.draw_landmarks(frame, handslms, mpHands.HAND_CONNECTIONS)
-
             fore_finger = (landmarks[8][0],landmarks[8][1])
             center = fore_finger
             thumb = (landmarks[4][0],landmarks[4][1])
@@ -123,7 +113,7 @@ def GenerateFrames(camera: VideoCamera, displayType: DisplayType):
                     red_index = 0
                     yellow_index = 0
 
-                    # paintWindow[67:,:,:] = 255
+                    paintWindow[67:,:,:] = 255
                 elif 160 <= center[0] <= 255:
                         colorIndex = 0 # Blue
                 elif 275 <= center[0] <= 370:
@@ -165,23 +155,14 @@ def GenerateFrames(camera: VideoCamera, displayType: DisplayType):
                     if points[i][j][k - 1] is None or points[i][j][k] is None:
                         continue
                     cv2.line(frame, points[i][j][k - 1], points[i][j][k], colors[i], 2)
-                    # cv2.line(paintWindow, points[i][j][k - 1], points[i][j][k], colors[i], 2)
-        
-        cv2.line(frame, (-50, -50), (-100, -100), color=(255, 255, 255))
+                    cv2.line(paintWindow, points[i][j][k - 1], points[i][j][k], colors[i], 2)
 
-        # Convert the processed frame to JPEG format
-        ret, buffer = cv2.imencode('.jpg', frame)
-        frame = buffer.tobytes()
-        yield (b'--frame\r\n'
-                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        cv2.imshow("Output", frame) 
+        cv2.imshow("Paint", paintWindow)
 
-@app.route('/video')
-def LiveVideo():
-    displayType = request.args.get('type', default='camera', type=str)
-    if (displayType == 'camera'):
-        return Response(GenerateFrames(VideoCamera(), displayType=DisplayType.CameraOverlapDisplay), mimetype='multipart/x-mixed-replace; boundary=frame')
-    elif (displayType == 'blank'):
-        return Response(GenerateFrames(VideoCamera(), displayType=DisplayType.BlankCanvasDisplay), mimetype='multipart/x-mixed-replace; boundary=frame')
+        if cv2.waitKey(1) == ord('q'):
+            break
 
-if __name__ == '__main__':
-    app.run(debug=True)
+    # release the webcam and destroy all active windows
+    cap.release()
+    cv2.destroyAllWindows()

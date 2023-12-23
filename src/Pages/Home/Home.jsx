@@ -1,25 +1,19 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import Canvas from "../../components/Canvas/Canvas";
 
 function Home() {
-  const [executionresult, setExecutionResult] = useState('');
+  const [showCanvas, setShowCanvas] = useState(false);
 
   const handleButtonClick = async () => {
-    try {
-      const response = await axios.post('http://localhost:5000/api/run-python');
-      setExecutionResult(response.data.success ? response.data.output : response.data.error);
-    } catch (error) {
-      console.error('Error running Python code:', error);
-    }
+    setShowCanvas(!showCanvas);
   };
 
   return (
     <div>
       <h1>Meet Link</h1>
-      <button onClick={handleButtonClick}>Run Python Code</button>
+      <button onClick={handleButtonClick}>{showCanvas ? 'Stop Canvas' : 'Show Canvas'}</button>
       <div>
-        <strong>Result:</strong>
-        <pre>{executionresult}</pre>
+        {showCanvas && <Canvas />}
       </div>
     </div>
   );
