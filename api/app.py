@@ -167,11 +167,11 @@ def GenerateFrames(camera: VideoCamera, displayType: DisplayType):
                     cv2.line(frame, points[i][j][k - 1], points[i][j][k], colors[i], 2)
                     # cv2.line(paintWindow, points[i][j][k - 1], points[i][j][k], colors[i], 2)
         
-        cv2.line(frame, (-50, -50), (-100, -100), color=(255, 255, 255))
+        cv2.line(frame, (-20, -20), (-100, -100), color=(255, 255, 255))
 
         # Convert the processed frame to JPEG format
         ret, buffer = cv2.imencode('.jpg', frame)
-        frame = buffer.tobytes()
+        frame = buffer.tobytes()    
         yield (b'--frame\r\n'
                 b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
@@ -184,4 +184,5 @@ def LiveVideo():
         return Response(GenerateFrames(VideoCamera(), displayType=DisplayType.BlankCanvasDisplay), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='127.0.0.1', port=5000)
+
